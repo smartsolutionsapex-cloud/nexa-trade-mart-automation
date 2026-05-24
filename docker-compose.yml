@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_API_KEY=${FIREBASE_API_KEY}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+    volumes:
+      - ./backend:/app/backend
+    depends_on:
+      - firebase-emulator
+    networks:
+      - nexa-network
+    restart: unless-stopped
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:3000
+      - REACT_APP_FIREBASE_CONFIG=${FIREBASE_CONFIG}
+    depends_on:
+      - backend
+    networks:
+      - nexa-network
+    restart: unless-stopped
+
+  # Admin Dashboard
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:3000
+      - REACT_APP_FIREBASE_CONFIG=${FIREBASE_CONFIG}
+    depends_on:
+      - backend
+    networks:
+      - nexa-network
+    restart: unless-stopped
+
+  # Firebase Emulator (for development)
+  firebase-emulator:
+    image: firebase/firebase-emulator
+    ports:
+      - "4000:4000"
+      - "5000:5000"
+      - "8085:8085"
+    volumes:
+      - ./firebase/emulator-data:/data
+    networks:
+      - nexa-network
+    restart: unless-stopped
+
+  # n8n Automation Engine
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+    volumes:
+      - n8n_data:/root/.n8n
+      - ./automation:/workflows
+    networks:
+      - nexa-network
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
+
+networks:
+  nexa-network:
+    driver: bridge
